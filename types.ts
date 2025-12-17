@@ -22,12 +22,10 @@ export enum BlogCategory {
 }
 
 export enum WordCount {
-  ONE_K = '1000 słów',
-  TWO_K = '2000 słów',
-  THREE_K = '3000 słów',
-  FIVE_K = '5000 słów',
-  TEN_K = '10 000 słów',
-  TWENTY_K = '20 000 słów'
+  SHORT = '500 słów',
+  MEDIUM = '1000 słów',
+  LONG = '2000 słów',
+  EPIC = '3000 słów'
 }
 
 export enum TimeRange {

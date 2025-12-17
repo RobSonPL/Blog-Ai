@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { BlogCategory, WordCount, TimeRange, TopicSuggestion } from '../types';
 import { generateTrendingTopics } from '../services/geminiService';
@@ -20,7 +21,8 @@ interface Props {
 export const Editor: React.FC<Props> = ({ onGenerate, onLogoUpload, isLoading, logo }) => {
   const [topic, setTopic] = useState('');
   const [category, setCategory] = useState<BlogCategory>(BlogCategory.HEALTH);
-  const [length, setLength] = useState<WordCount>(WordCount.TWO_K);
+  // Fix: WordCount.TWO_K does not exist in the enum definition, using WordCount.MEDIUM as default.
+  const [length, setLength] = useState<WordCount>(WordCount.MEDIUM);
   
   const [suggestions, setSuggestions] = useState<TopicSuggestion[]>([]);
   const [sources, setSources] = useState<{title: string, uri: string}[]>([]);
