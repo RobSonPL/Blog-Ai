@@ -1,10 +1,11 @@
-import { GoogleGenAI, Type, Schema } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { BlogCategory, WordCount, BlogPostData, TopicSuggestion, TimeRange } from "../types";
 
 // Helper to get client with current key
 const getClient = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-const blogSchema: Schema = {
+// Define schema as a plain object adhering to @google/genai Type enum
+const blogSchema = {
   type: Type.OBJECT,
   properties: {
     title: { type: Type.STRING, description: "Chwytliwy tytuł bloga (H1)" },
@@ -14,11 +15,10 @@ const blogSchema: Schema = {
     imagePrompt: { type: Type.STRING, description: "Szczegółowy prompt do wygenerowania grafiki pasującej do artykułu." },
     chart: {
       type: Type.OBJECT,
-      nullable: true,
       description: "Opcjonalne dane do wykresu, jeśli pasują do treści.",
       properties: {
         title: { type: Type.STRING },
-        type: { type: Type.STRING, enum: ["bar", "line", "pie"] },
+        type: { type: Type.STRING },
         data: {
           type: Type.ARRAY,
           items: {
@@ -33,7 +33,6 @@ const blogSchema: Schema = {
     },
     sponsoredLink: {
       type: Type.OBJECT,
-      nullable: true,
       description: "Propozycja linku sponsorowanego (zmyślona lub generyczna).",
       properties: {
         anchor: { type: Type.STRING },
@@ -190,7 +189,6 @@ export const generateBlogImage = async (prompt: string): Promise<string> => {
   const ai = getClient();
   
   try {
-    // Switching to 2.5-flash-image (Nano Banana) for better reliability with simple prompts
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image', 
       contents: {
@@ -203,6 +201,7 @@ export const generateBlogImage = async (prompt: string): Promise<string> => {
       }
     });
 
+    // Iterate through parts to find the image part as per guidelines
     for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) {
         return `data:image/png;base64,${part.inlineData.data}`;
