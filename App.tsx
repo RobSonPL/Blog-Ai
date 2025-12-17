@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import { Editor } from './components/Editor';
 import { ArticleView } from './components/ArticleView';
 import { generateBlogPost, generateMoreContent } from './services/geminiService';
@@ -177,6 +178,7 @@ const App: React.FC = () => {
           </div>
         </div>
       </div>
+      <Analytics />
     </div>
   );
 };
