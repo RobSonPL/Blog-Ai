@@ -17,6 +17,7 @@ export const Editor: React.FC<Props> = ({ onGenerate, onLogoUpload, isLoading, l
   
   // Widget State
   const [suggestions, setSuggestions] = useState<TopicSuggestion[]>([]);
+  const [sources, setSources] = useState<{title: string, uri: string}[]>([]);
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [suggestionError, setSuggestionError] = useState<string | null>(null);
 
@@ -30,14 +31,17 @@ export const Editor: React.FC<Props> = ({ onGenerate, onLogoUpload, isLoading, l
     setIsSuggesting(true);
     setSuggestionError(null);
     setSuggestions([]);
+    setSources([]);
     try {
       // Using WEEK as requested for the "last 7 days" requirement
-      const results = await generateTrendingTopics(category, TimeRange.WEEK);
-      if (results.length === 0) {
+      const { topics, sources: trendSources } = await generateTrendingTopics(category, TimeRange.WEEK);
+      
+      if (topics.length === 0) {
         setSuggestionError("Nie udało się znaleźć tematów. Spróbuj później.");
       } else {
         // Limit to 5 as requested
-        setSuggestions(results.slice(0, 5));
+        setSuggestions(topics.slice(0, 5));
+        setSources(trendSources);
       }
     } catch (e) {
       setSuggestionError("Błąd pobierania trendów.");
@@ -71,6 +75,7 @@ export const Editor: React.FC<Props> = ({ onGenerate, onLogoUpload, isLoading, l
             onChange={(e) => {
                 setCategory(e.target.value as BlogCategory);
                 setSuggestions([]); // Clear old suggestions on category change
+                setSources([]);
             }}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
           >
@@ -136,6 +141,20 @@ export const Editor: React.FC<Props> = ({ onGenerate, onLogoUpload, isLoading, l
                             </p>
                         </div>
                     ))}
+                    
+                    {/* Display Sources as required by Google Grounding Guidelines */}
+                    {sources.length > 0 && (
+                        <div className="mt-3 pt-2 border-t border-indigo-100">
+                           <p className="text-[10px] font-bold text-indigo-400 mb-1">Źródła:</p>
+                           <div className="flex flex-wrap gap-2">
+                               {sources.map((src, i) => (
+                                   <a key={i} href={src.uri} target="_blank" rel="noopener noreferrer" className="text-[10px] text-indigo-500 hover:underline truncate max-w-[150px]" title={src.title}>
+                                       {new URL(src.uri).hostname.replace('www.', '')}
+                                   </a>
+                               ))}
+                           </div>
+                        </div>
+                    )}
                 </div>
             )}
         </div>

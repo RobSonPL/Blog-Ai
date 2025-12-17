@@ -125,7 +125,7 @@ export const generateMoreContent = async (
 export const generateTrendingTopics = async (
   category: string,
   range: TimeRange
-): Promise<TopicSuggestion[]> => {
+): Promise<{ topics: TopicSuggestion[], sources: { title: string, uri: string }[] }> => {
   const ai = getClient();
   
   const prompt = `
@@ -161,14 +161,25 @@ export const generateTrendingTopics = async (
     // Clean up markdown code blocks if model adds them despite instructions
     const cleanText = text.replace(/```json/g, '').replace(/```/g, '');
     
+    let topics: TopicSuggestion[] = [];
+    
     // Find the array
     const jsonMatch = cleanText.match(/\[[\s\S]*\]/);
     
     if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]) as TopicSuggestion[];
+      topics = JSON.parse(jsonMatch[0]) as TopicSuggestion[];
     }
     
-    return [];
+    // Extract sources from grounding metadata as required by guidelines
+    const sources: { title: string, uri: string }[] = [];
+    const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+    chunks.forEach(chunk => {
+      if (chunk.web?.uri) {
+        sources.push({ title: chunk.web.title || 'Źródło', uri: chunk.web.uri });
+      }
+    });
+    
+    return { topics, sources };
   } catch (error) {
     console.error("Błąd generowania tematów:", error);
     throw error;
