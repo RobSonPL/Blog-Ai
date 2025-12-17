@@ -1,7 +1,14 @@
 import React, { useState } from 'react';
 import { BlogCategory, WordCount, TimeRange, TopicSuggestion } from '../types';
-import { PenTool, Upload, Sparkles, X, ChevronRight, Loader2, TrendingUp, RefreshCw } from 'lucide-react';
 import { generateTrendingTopics } from '../services/geminiService';
+import { 
+  PenTool, 
+  Upload, 
+  Sparkles, 
+  TrendingUp as TrendingIcon, 
+  RefreshCw as RefreshIcon, 
+  Loader2 as LoaderIcon 
+} from 'lucide-react';
 
 interface Props {
   onGenerate: (topic: string, category: BlogCategory, length: WordCount) => void;
@@ -15,7 +22,6 @@ export const Editor: React.FC<Props> = ({ onGenerate, onLogoUpload, isLoading, l
   const [category, setCategory] = useState<BlogCategory>(BlogCategory.HEALTH);
   const [length, setLength] = useState<WordCount>(WordCount.TWO_K);
   
-  // Widget State
   const [suggestions, setSuggestions] = useState<TopicSuggestion[]>([]);
   const [sources, setSources] = useState<{title: string, uri: string}[]>([]);
   const [isSuggesting, setIsSuggesting] = useState(false);
@@ -32,19 +38,19 @@ export const Editor: React.FC<Props> = ({ onGenerate, onLogoUpload, isLoading, l
     setSuggestionError(null);
     setSuggestions([]);
     setSources([]);
+    
     try {
-      // Using WEEK as requested for the "last 7 days" requirement
-      const { topics, sources: trendSources } = await generateTrendingTopics(category, TimeRange.WEEK);
+      const result = await generateTrendingTopics(category, TimeRange.WEEK);
       
-      if (topics.length === 0) {
-        setSuggestionError("Nie udało się znaleźć tematów. Spróbuj później.");
+      if (!result.topics || result.topics.length === 0) {
+        setSuggestionError("Brak gorących trendów w tej kategorii.");
       } else {
-        // Limit to 5 as requested
-        setSuggestions(topics.slice(0, 5));
-        setSources(trendSources);
+        setSuggestions(result.topics.slice(0, 5));
+        setSources(result.sources);
       }
     } catch (e) {
-      setSuggestionError("Błąd pobierania trendów.");
+      console.error("Trend generation error:", e);
+      setSuggestionError("Błąd połączenia z Google Search. Spróbuj za chwilę.");
     } finally {
       setIsSuggesting(false);
     }
@@ -67,17 +73,17 @@ export const Editor: React.FC<Props> = ({ onGenerate, onLogoUpload, isLoading, l
       </div>
 
       <div className="space-y-4">
-        {/* Category */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Kategoria</label>
           <select
             value={category}
             onChange={(e) => {
                 setCategory(e.target.value as BlogCategory);
-                setSuggestions([]); // Clear old suggestions on category change
+                setSuggestions([]);
                 setSources([]);
+                setSuggestionError(null);
             }}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white transition"
           >
             {Object.values(BlogCategory).map((cat) => (
               <option key={cat} value={cat}>{cat}</option>
@@ -85,48 +91,49 @@ export const Editor: React.FC<Props> = ({ onGenerate, onLogoUpload, isLoading, l
           </select>
         </div>
 
-        {/* Popular Topics Widget */}
         <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-4 border border-indigo-100">
             <div className="flex justify-between items-center mb-3">
                 <div className="flex items-center gap-2 text-indigo-900">
-                    <TrendingUp size={16} />
+                    <TrendingIcon size={16} />
                     <h3 className="font-bold text-sm">Popularne tematy</h3>
                 </div>
                 <button 
                     onClick={handleFetchTrends}
                     disabled={isSuggesting}
-                    title="Odśwież trendy (ostatnie 7 dni)"
+                    title="Szukaj trendów w Google"
                     className="p-1.5 bg-white rounded-full text-indigo-600 hover:text-indigo-800 shadow-sm hover:shadow transition disabled:opacity-50"
                 >
-                    <RefreshCw size={14} className={isSuggesting ? "animate-spin" : ""} />
+                    <RefreshIcon size={14} className={isSuggesting ? "animate-spin" : ""} />
                 </button>
             </div>
             
             {isSuggesting && (
                 <div className="text-center py-4 text-xs text-indigo-400">
-                    <Loader2 size={20} className="animate-spin mx-auto mb-2" />
-                    Analizuję Google Search...
+                    <LoaderIcon size={20} className="animate-spin mx-auto mb-2" />
+                    Przeszukuję sieć...
                 </div>
             )}
 
             {suggestionError && (
-                 <p className="text-xs text-red-500 text-center py-2">{suggestionError}</p>
+                 <div className="bg-red-50 text-red-500 text-[10px] p-2 rounded border border-red-100 text-center flex items-center justify-center gap-1">
+                    <span>{suggestionError}</span>
+                 </div>
             )}
 
             {!isSuggesting && suggestions.length === 0 && !suggestionError && (
                 <div className="text-center py-2">
-                    <p className="text-xs text-gray-500 mb-2">Sprawdź co jest na topie w kategorii <strong>{category}</strong></p>
+                    <p className="text-xs text-gray-500 mb-2">Chcesz wiedzieć co trenduje w <strong>{category}</strong>?</p>
                     <button 
                         onClick={handleFetchTrends}
-                        className="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-md hover:bg-indigo-700 transition"
+                        className="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-md hover:bg-indigo-700 transition font-medium"
                     >
-                        Pobierz trendy
+                        Analizuj trendy
                     </button>
                 </div>
             )}
 
             {!isSuggesting && suggestions.length > 0 && (
-                <div className="space-y-2 max-h-[220px] overflow-y-auto custom-scrollbar pr-1">
+                <div className="space-y-2 max-h-[250px] overflow-y-auto custom-scrollbar pr-1">
                     {suggestions.map((s, idx) => (
                         <div 
                             key={idx}
@@ -136,19 +143,18 @@ export const Editor: React.FC<Props> = ({ onGenerate, onLogoUpload, isLoading, l
                             <p className="text-xs font-semibold text-gray-800 group-hover:text-indigo-600 mb-0.5 line-clamp-2 leading-tight">
                                 {s.title}
                             </p>
-                            <p className="text-[10px] text-gray-400 line-clamp-1">
+                            <p className="text-[10px] text-gray-400 line-clamp-2 italic">
                                 {s.description}
                             </p>
                         </div>
                     ))}
                     
-                    {/* Display Sources as required by Google Grounding Guidelines */}
                     {sources.length > 0 && (
                         <div className="mt-3 pt-2 border-t border-indigo-100">
-                           <p className="text-[10px] font-bold text-indigo-400 mb-1">Źródła:</p>
-                           <div className="flex flex-wrap gap-2">
-                               {sources.map((src, i) => (
-                                   <a key={i} href={src.uri} target="_blank" rel="noopener noreferrer" className="text-[10px] text-indigo-500 hover:underline truncate max-w-[150px]" title={src.title}>
+                           <p className="text-[9px] font-bold text-indigo-400 mb-1 uppercase tracking-tighter">Oparte o źródła z Google:</p>
+                           <div className="flex flex-wrap gap-x-3 gap-y-1">
+                               {sources.slice(0, 3).map((src, i) => (
+                                   <a key={i} href={src.uri} target="_blank" rel="noopener noreferrer" className="text-[9px] text-indigo-500 hover:underline truncate max-w-[120px]" title={src.title}>
                                        {new URL(src.uri).hostname.replace('www.', '')}
                                    </a>
                                ))}
@@ -159,27 +165,25 @@ export const Editor: React.FC<Props> = ({ onGenerate, onLogoUpload, isLoading, l
             )}
         </div>
 
-        {/* Topic Input */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Temat posta</label>
           <input
             type="text"
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
-            placeholder="Wpisz temat lub wybierz z trendów"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition"
+            placeholder="O czym napiszemy?"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition"
           />
         </div>
 
-        {/* Word Count */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Długość tekstu (słowa)</label>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            {Object.values(WordCount).map((wc) => (
+          <label className="block text-sm font-medium text-gray-700 mb-1">Długość tekstu</label>
+          <div className="grid grid-cols-3 gap-2">
+            {Object.values(WordCount).slice(0, 3).map((wc) => (
               <button
                 key={wc}
                 onClick={() => setLength(wc)}
-                className={`text-xs py-2 px-2 rounded-md border font-medium transition ${
+                className={`text-[10px] py-2 px-1 rounded-md border font-bold transition ${
                   length === wc
                     ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
                     : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300'
@@ -191,40 +195,26 @@ export const Editor: React.FC<Props> = ({ onGenerate, onLogoUpload, isLoading, l
           </div>
         </div>
 
-        {/* Logo Upload */}
         <div>
-           <label className="block text-sm font-medium text-gray-700 mb-1">Logo Autora (opcjonalne)</label>
-           <label className="flex items-center gap-3 px-4 py-3 border border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition group">
+           <label className="block text-sm font-medium text-gray-700 mb-1">Twoje Logo (opcjonalnie)</label>
+           <label className="flex items-center gap-3 px-4 py-2.5 border border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition">
               <input type="file" accept="image/*" onChange={handleLogoChange} className="hidden" />
-              <div className={`p-2 rounded-full ${logo ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400 group-hover:text-indigo-500'}`}>
-                 <Upload size={20} />
+              <div className={`p-1.5 rounded-full ${logo ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'}`}>
+                 <Upload size={16} />
               </div>
-              <div className="flex-1">
-                 <p className="text-sm font-medium text-gray-700">{logo ? 'Logo załadowane' : 'Wybierz plik'}</p>
-                 <p className="text-xs text-gray-400">{logo ? 'Kliknij, aby zmienić' : 'PNG, JPG (max 2MB)'}</p>
-              </div>
+              <p className="text-xs font-medium text-gray-500">{logo ? 'Logo gotowe!' : 'Wgraj plik graficzny'}</p>
            </label>
         </div>
 
-        {/* Generate Button */}
         <button
           onClick={() => onGenerate(topic, category, length)}
           disabled={isLoading || !topic}
-          className={`w-full py-4 rounded-xl text-white font-bold text-lg shadow-lg hover:shadow-xl transition transform hover:scale-[1.02] flex items-center justify-center gap-2 mt-6 ${
-             isLoading || !topic ? 'bg-gray-400 cursor-not-allowed' : 'bg-gradient-to-r from-indigo-600 to-purple-600'
+          className={`w-full py-4 rounded-xl text-white font-bold text-lg shadow-lg transition transform hover:scale-[1.01] flex items-center justify-center gap-2 mt-4 ${
+             isLoading || !topic ? 'bg-gray-400' : 'bg-gradient-to-r from-indigo-600 to-purple-600'
           }`}
         >
-          {isLoading ? (
-             <>
-               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-               <span>Piszę...</span>
-             </>
-          ) : (
-             <>
-               <Sparkles size={20} />
-               <span>Generuj Post</span>
-             </>
-          )}
+          {isLoading ? <LoaderIcon size={20} className="animate-spin" /> : <Sparkles size={20} />}
+          <span>{isLoading ? 'Pracuję...' : 'Generuj Bestseller'}</span>
         </button>
       </div>
     </div>

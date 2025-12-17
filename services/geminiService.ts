@@ -71,7 +71,7 @@ export const generateBlogPost = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview', // High intelligence model for text
+      model: 'gemini-3-pro-preview', 
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -97,15 +97,9 @@ export const generateMoreContent = async (
   
   const prompt = `
     Jesteś tym samym nagradzanym blogerem.
-    
     Kontekst: Piszesz artykuł pt. "${currentTitle}".
     Ostatnia część treści (kontekst): "${currentBodyContext.slice(-500)}"
-    
-    Zadanie: Napisz kolejną, logiczną sekcję tego artykułu (kontynuację).
-    Format: Markdown. Rozpocznij od nagłówka H2.
-    Styl: Ten sam co wcześniej - emocjonalny, dużo emoji, merytoryczny.
-    Długość: Około 200-300 słów.
-    Nie pisz podsumowania ani zakończenia (to już mamy). Po prostu rozwiń temat o kolejny wątek.
+    Zadanie: Napisz kolejną sekcję (kontynuację) w Markdown, zacznij od H2, używaj dużo emoji. Język polski.
   `;
 
   try {
@@ -128,59 +122,59 @@ export const generateTrendingTopics = async (
   const ai = getClient();
   
   const prompt = `
-    Jesteś ekspertem SEO i Content Marketingu.
-    Twoim zadaniem jest zaproponowanie 6 unikalnych, chwytliwych tematów na bloga w kategorii: "${category}".
+    Przeprowadź research w Google Search na temat trendów z okresu: ${range} dla kategorii: "${category}".
+    Zaproponuj 6 chwytliwych i unikalnych tematów na artykuły blogowe.
     
-    Bazuj na trendach wyszukiwania w Google z okresu: ${range}.
-    Użyj narzędzia Google Search aby sprawdzić co faktycznie interesuje ludzi w tej niszy.
-    
-    Dla każdego tematu przygotuj:
-    1. Tytuł (Title)
-    2. Krótki opis (Description) - do 200 słów, zachęcający do napisania, wyjaśniający dlaczego to trenduje.
-
-    Zwróć odpowiedź w formacie czystego JSON (bez markdowna):
+    Wymagany format wyjściowy to wyłącznie surowa tablica JSON (bez komentarzy przed i po):
     [
       {
         "title": "Tytuł tematu",
-        "description": "Opis..."
+        "description": "Krótkie uzasadnienie dlaczego to teraz trenduje"
       }
     ]
+    Język: Polski.
   `;
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: 'gemini-3-flash-preview', // Szybszy model, idealny do narzędzi wyszukiwania
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }]
       }
     });
 
-    const text = response.text || "";
-    // Clean up markdown code blocks if model adds them despite instructions
-    const cleanText = text.replace(/```json/g, '').replace(/```/g, '');
+    const rawText = response.text || "";
     
+    // Zaawansowane wyłuskiwanie JSON-a (szukamy pierwszej tablicy)
+    const jsonMatch = rawText.match(/\[\s*\{[\s\S]*\}\s*\]/);
     let topics: TopicSuggestion[] = [];
     
-    // Find the array
-    const jsonMatch = cleanText.match(/\[[\s\S]*\]/);
-    
     if (jsonMatch) {
-      topics = JSON.parse(jsonMatch[0]) as TopicSuggestion[];
+      try {
+        topics = JSON.parse(jsonMatch[0]);
+      } catch (parseError) {
+        console.error("Błąd parsowania JSON trendów:", parseError);
+      }
     }
     
-    // Extract sources from grounding metadata as required by guidelines
+    // Ekstrakcja źródeł Grounding (zgodnie z wytycznymi)
     const sources: { title: string, uri: string }[] = [];
-    const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+    const groundingMetadata = response.candidates?.[0]?.groundingMetadata;
+    const chunks = groundingMetadata?.groundingChunks || [];
+    
     chunks.forEach(chunk => {
       if (chunk.web?.uri) {
-        sources.push({ title: chunk.web.title || 'Źródło', uri: chunk.web.uri });
+        sources.push({ 
+          title: chunk.web.title || 'Źródło trendu', 
+          uri: chunk.web.uri 
+        });
       }
     });
     
     return { topics, sources };
   } catch (error) {
-    console.error("Błąd generowania tematów:", error);
+    console.error("Błąd w generateTrendingTopics:", error);
     throw error;
   }
 };
@@ -201,7 +195,6 @@ export const generateBlogImage = async (prompt: string): Promise<string> => {
       }
     });
 
-    // Iterate through parts to find the image part as per guidelines
     for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) {
         return `data:image/png;base64,${part.inlineData.data}`;
